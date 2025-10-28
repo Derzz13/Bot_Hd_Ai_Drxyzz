@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Photo & Video Enhancer</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg1:#0f1720; --bg2:#122332; --accent1:#00d4ff; --accent2:#0077a8;
+    --card: rgba(255,255,255,0.06);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; font-family:'Poppins',sans-serif; background: linear-gradient(180deg,var(--bg1),var(--bg2));
+    color:#eaf6ff; min-height:100vh; display:flex; align-items:center; justify-content:center; padding:28px;
+  }
+  .shell{width:100%;max-width:1000px}
+  header{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+  header .logo{width:56px;height:56px;border-radius:12px;background:linear-gradient(135deg,var(--accent1),var(--accent2));display:flex;align-items:center;justify-content:center;font-weight:700;color:#032;box-shadow:0 8px 30px rgba(0,0,0,0.5)}
+  h1{font-size:1.4rem;margin:0}
+  p.lead{color:#bcd6e6;margin:6px 0 18px}
+
+  .card{background:var(--card);padding:20px;border-radius:14px;backdrop-filter:blur(8px);box-shadow:0 12px 40px rgba(2,8,20,0.6)}
+  .controls{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+  .btn{
+    background:linear-gradient(90deg,var(--accent1),var(--accent2));border:none;color:#042; padding:10px 14px;border-radius:10px;font-weight:600;cursor:pointer;
+    box-shadow:0 8px 22px rgba(0,0,0,0.45);
+  }
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.08);color:#cde}
+  .upload-label{flex:1;padding:12px;border-radius:10px;border:2px dashed rgba(255,255,255,0.06);cursor:pointer}
+  input[type=file]{display:none}
+  .main{display:grid;grid-template-columns:1fr 360px;gap:18px;margin-top:16px}
+  .preview{background:linear-gradient(180deg,rgba(255,255,255,0.02),rgba(255,255,255,0.01));padding:12px;border-radius:12px;display:flex;flex-direction:column;gap:12px;align-items:center}
+  .canvas-wrap{width:100%;height:520px;display:flex;align-items:center;justify-content:center;background:#071018;border-radius:10px;overflow:hidden;position:relative}
+  canvas{max-width:100%;max-height:100%;display:block}
+  .side{padding:10px}
+  label.range{display:block;font-size:.85rem;margin:8px 0 6px;color:#bcd6e6}
+  input[type=range]{width:100%}
+  .muted{font-size:.85rem;color:#9fb8c6;margin-top:8px}
+  .result-actions{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap}
+  .small{font-size:.85rem;padding:8px 10px;border-radius:8px}
+  .note{margin-top:10px;color:#9fb8c6;font-size:.85rem}
+  footer{margin-top:14px;text-align:center;color:#86b2c8;font-size:.85rem}
+
+  @media(max-width:980px){
+    .main{grid-template-columns:1fr; }
+    .canvas-wrap{height:360px}
+  }
+
+  /* subtle entrance */
+  .card{transform:translateY(10px);opacity:0;animation:appear .6s ease forwards}
+  @keyframes appear{to{transform:none;opacity:1}}
+</style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+<div style="display: flex; align-items: center;">
+  <!-- Logo -->
+  <a href="/">
+    <img src="https://files.catbox.moe/zcm1uw.png" alt="Nama Logo" style="height: 50px; margin-right: 10px;">
+  </a>
+      <div>
+        <h1>Photo & Video Enhancer — Tanpa API</h1>
+        <p class="lead">Seperti Remini, tingkatkan kualitas foto buram Anda menjadi gambar tajam dan jelas dalam hitungan detik</p>
+      </div>
+    </header>
+
+    <div class="card">
+      <div class="controls">
+        <label class="upload-label" id="uploadLabel">Klik untuk pilih foto / video
+          <input type="file" id="fileInput" accept="image/*,video/*">
+        </label>
+
+        <button class="btn" id="autoEnhance">Auto Enhance</button>
+        <button class="btn ghost" id="downloadBtn" disabled>Download Hasil</button>
+        <button class="btn ghost" id="resetBtn">Reset</button>
+      </div>
+
+      <div class="main">
+        <div class="preview">
+          <div class="canvas-wrap" id="canvasWrap">
+            <canvas id="workCanvas" width="800" height="600"></canvas>
+          </div>
+          <div class="muted" id="status">Belum ada file. Pilih file untuk mulai.</div>
+          <div class="result-actions">
+            <button class="btn ghost small" id="showOriginal">Tampilkan Original</button>
+            <button class="btn ghost small" id="showProcessed">Tampilkan Hasil</button>
+          </div>
+        </div>
+
+        <aside class="side">
+          <label class="range">Upscale (x)</label>
+          <select id="scaleSelect" style="width:100%;padding:8px;border-radius:8px;background:transparent;border:1px solid rgba(255,255,255,0.06);color:#dff">
+            <option value="1">1x (no upscale)</option>
+            <option value="1.5">1.5x</option>
+            <option value="2" selected>2x</option>
+            <option value="3">3x</option>
+          </select>
+
+          <label class="range">Sharpen (unsharp mask)</label>
+          <input type="range" id="sharpen" min="0" max="200" value="60" />
+
+          <label class="range">Denoise (median radius)</label>
+          <input type="range" id="denoise" min="0" max="4" value="0" />
+
+          <label class="range">Brightness</label>
+          <input type="range" id="brightness" min="-60" max="60" value="0" />
+
+          <label class="range">Contrast</label>
+          <input type="range" id="contrast" min="-60" max="60" value="10" />
+
+          <div class="note">Untuk hasil terbaik, gunakan foto resolusi sedang-tinggi. Proses video hanya memproses frame pertama untuk performa di browser.</div>
+        </aside>
+      </div>
+    </div>
+
+    <footer>@Drxyzz Penjernih Foto & Video</footer>
+  </div>
+
+<script>
+/*
+  Client-side image enhancer (no API).
+  - Resampling: Lanczos (nice quality) for upscaling
+  - Unsharp mask (sharpen)
+  - Median denoise (small radius)
+  - Brightness / contrast adjusts
+  - For videos: extract first frame and process as image
+  Limitations: Heavy operations may be slow on very large images or mobile devices.
+*/
+
+const fileInput = document.getElementById('fileInput');
+const canvas = document.getElementById('workCanvas');
+const ctx = canvas.getContext('2d', {alpha:false});
+const status = document.getElementById('status');
+const downloadBtn = document.getElementById('downloadBtn');
+const autoEnhance = document.getElementById('autoEnhance');
+const resetBtn = document.getElementById('resetBtn');
+const showOriginal = document.getElementById('showOriginal');
+const showProcessed = document.getElementById('showProcessed');
+
+const sharpenRange = document.getElementById('sharpen');
+const denoiseRange = document.getElementById('denoise');
+const scaleSelect = document.getElementById('scaleSelect');
+const brightnessRange = document.getElementById('brightness');
+const contrastRange = document.getElementById('contrast');
+
+let originalImage = null; // Image or canvas capturing original
+let processedCanvas = null; // store processed result
+let currentBlobURL = null;
+
+function setStatus(txt){ status.textContent = txt; }
+
+// --- UTIL: clamp
+const clamp = (v,a,b)=> Math.max(a,Math.min(b,v));
+
+// --- load image from File object; if video, capture first frame
+async function loadFile(file){
+  setStatus('Memuat file...');
+  if (currentBlobURL){ URL.revokeObjectURL(currentBlobURL); currentBlobURL = null; }
+  if (file.type.startsWith('image/')){
+    const url = URL.createObjectURL(file); currentBlobURL = url;
+    const img = await loadImage(url);
+    originalImage = img;
+    drawToCanvas(img);
+    setStatus('Gambar siap. Atur pilihan lalu tekan "Auto Enhance".');
+  } else if (file.type.startsWith('video/')){
+    setStatus('Mengekstrak frame pertama dari video...');
+    try{
+      const frameFile = await captureFirstFrame(file);
+      const url = URL.createObjectURL(frameFile); currentBlobURL = url;
+      const img = await loadImage(url);
+      originalImage = img;
+      drawToCanvas(img);
+      setStatus('Frame pertama siap (video). Tekan "Auto Enhance".');
+    }catch(e){
+      setStatus('Gagal mengambil frame: ' + e.message);
+    }
+  } else {
+    setStatus('Tipe file tidak didukung.');
+  }
+  downloadBtn.disabled = true;
+}
+
+function loadImage(src){
+  return new Promise((res,rej)=>{
+    const i = new Image();
+    i.crossOrigin = "anonymous";
+    i.onload = ()=> res(i);
+    i.onerror = (e)=> rej(new Error('Gagal memuat gambar'));
+    i.src = src;
+  });
+}
+
+function drawToCanvas(img){
+  // fit image into canvas while preserving resolution ratio
+  const maxW = 1200; // limit very large to avoid OOM
+  const maxH = 900;
+  let w = img.naturalWidth || img.width;
+  let h = img.naturalHeight || img.height;
+  // scale down if too huge
+  const scale = Math.min(1, maxW / w, maxH / h);
+  w = Math.round(w * scale);
+  h = Math.round(h * scale);
+  canvas.width = w; canvas.height = h;
+  ctx.fillStyle = '#071018'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(img, 0, 0, w, h);
+}
+
+// capture first frame from a video File, return File(image/png)
+function captureFirstFrame(file){
+  return new Promise((resolve,reject)=>{
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.preload = 'metadata';
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadeddata', ()=> {
+      try{
+        const w = video.videoWidth || 640;
+        const h = video.videoHeight || 360;
+        const c = document.createElement('canvas');
+        c.width = w; c.height = h;
+        const cctx = c.getContext('2d');
+        cctx.drawImage(video, 0, 0, w, h);
+        c.toBlob(blob=>{
+          if (!blob) reject(new Error('Gagal konversi frame'));
+          else resolve(new File([blob],'frame.png',{type:'image/png'}));
+          URL.revokeObjectURL(url);
+        }, 'image/png');
+      }catch(e){ reject(e); URL.revokeObjectURL(url); }
+    });
+    video.addEventListener('error', (e)=>{ reject(new Error('Gagal load video')); URL.revokeObjectURL(url); });
+  });
+}
+
+// --- IMAGE PROCESSING PIPELINE ---
+
+// 1) high-quality resampling (Lanczos) implementation (simple) for upscaling
+// We'll implement a basic lanczosResize that draws into an offscreen canvas using interpolation.
+// Note: For performance, we provide a simpler fallback (ctx.drawImage) when large sizes.
+function lanczosResize(srcCanvas, scaleFactor){
+  if (scaleFactor === 1) return srcCanvas;
+  const sw = srcCanvas.width, sh = srcCanvas.height;
+  const dw = Math.round(sw * scaleFactor), dh = Math.round(sh * scaleFactor);
+  // If resulting dims huge, limit to avoid freeze
+  if (dw * dh > 8000 * 8000) {
+    // fallback to simple drawImage with smoothing
+    const c = document.createElement('canvas'); c.width = dw; c.height = dh;
+    const cctx = c.getContext('2d');
+    cctx.imageSmoothingEnabled = true;
+    cctx.imageSmoothingQuality = 'high';
+    cctx.drawImage(srcCanvas, 0, 0, dw, dh);
+    return c;
+  }
+  // We'll use incremental scaling in steps to improve quality and performance
+  let tmp = srcCanvas;
+  let factor = scaleFactor;
+  // scale by max 2x steps
+  while (factor > 2){
+    tmp = scaleCanvas(tmp, 2);
+    factor /= 2;
+  }
+  if (factor !== 1){
+    tmp = scaleCanvas(tmp, factor);
+  }
+  return tmp;
+}
+
+// helper: scale canvas by factor using drawImage with high quality smoothing
+function scaleCanvas(source, factor){
+  const sw = source.width, sh = source.height;
+  const dw = Math.round(sw * factor), dh = Math.round(sh * factor);
+  const c = document.createElement('canvas'); c.width = dw; c.height = dh;
+  const cctx = c.getContext('2d');
+  cctx.imageSmoothingEnabled = true;
+  cctx.imageSmoothingQuality = 'high';
+  cctx.drawImage(source, 0, 0, sw, sh, 0, 0, dw, dh);
+  return c;
+}
+
+// 2) Unsharp mask (sharpen) implementation
+function unsharpMask(canvasIn, amountPercent=60, radius=1){
+  const amt = clamp(amountPercent/100, 0, 5);
+  const w = canvasIn.width, h = canvasIn.height;
+  const srcCtx = canvasIn.getContext('2d');
+  const srcData = srcCtx.getImageData(0,0,w,h);
+  // blur the image (simple box blur for performance)
+  const blurred = boxBlurCanvasData(srcData, w, h, Math.max(1, radius|0));
+  const out = srcCtx.createImageData(w,h);
+  for (let i=0;i<srcData.data.length;i+=4){
+    // sharpen = original + amount * (original - blurred)
+    out.data[i]   = clamp(srcData.data[i]   + amt*(srcData.data[i]   - blurred.data[i]  ), 0,255);
+    out.data[i+1] = clamp(srcData.data[i+1] + amt*(srcData.data[i+1] - blurred.data[i+1]), 0,255);
+    out.data[i+2] = clamp(srcData.data[i+2] + amt*(srcData.data[i+2] - blurred.data[i+2]), 0,255);
+    out.data[i+3] = srcData.data[i+3];
+  }
+  const outCanvas = document.createElement('canvas'); outCanvas.width=w; outCanvas.height=h;
+  outCanvas.getContext('2d').putImageData(out,0,0);
+  return outCanvas;
+}
+
+// simple box blur (applies radius times)
+function boxBlurCanvasData(srcData, w, h, radius){
+  // crude but fast separable box blur
+  const tmp = new Uint8ClampedArray(srcData.data);
+  const dst = new Uint8ClampedArray(srcData.data.length);
+  const channels = 4;
+  const r = radius;
+  // horizontal
+  for (let y=0;y<h;y++){
+    for (let x=0;x<w;x++){
+      let rsum=0, gsum=0, bsum=0, asum=0, count=0;
+      for (let k = x-r; k<=x+r; k++){
+        if (k<0||k>=w) continue;
+        const idx = (y*w + k)*channels;
+        rsum += tmp[idx]; gsum += tmp[idx+1]; bsum += tmp[idx+2]; asum += tmp[idx+3]; count++;
+      }
+      const idx2 = (y*w + x)*channels;
+      dst[idx2] = rsum/count; dst[idx2+1] = gsum/count; dst[idx2+2] = bsum/count; dst[idx2+3] = asum/count;
+    }
+  }
+  // vertical
+  const dst2 = new Uint8ClampedArray(srcData.data.length);
+  for (let x=0;x<w;x++){
+    for (let y=0;y<h;y++){
+      let rsum=0, gsum=0, bsum=0, asum=0, count=0;
+      for (let k = y-r; k<=y+r; k++){
+        if (k<0||k>=h) continue;
+        const idx = (k*w + x)*channels;
+        rsum += dst[idx]; gsum += dst[idx+1]; bsum += dst[idx+2]; asum += dst[idx+3]; count++;
+      }
+      const idx2 = (y*w + x)*channels;
+      dst2[idx2] = rsum/count; dst2[idx2+1] = gsum/count; dst2[idx2+2] = bsum/count; dst2[idx2+3] = asum/count;
+    }
+  }
+  const out = new ImageData(dst2, w, h);
+  return out;
+}
+
+// 3) Median denoise (small radius 1-3)
+function medianDenoise(canvasIn, radius=1){
+  if (radius<=0) return canvasIn;
+  const w = canvasIn.width, h = canvasIn.height;
+  const srcCtx = canvasIn.getContext('2d');
+  const src = srcCtx.getImageData(0,0,w,h);
+  const dst = srcCtx.createImageData(w,h);
+  const channels = 4;
+  const windowSize = (2*radius+1)*(2*radius+1);
+  for (let y=0;y<h;y++){
+    for (let x=0;x<w;x++){
+      const rArr = [], gArr = [], bArr = [];
+      for (let yy = y-radius; yy<=y+radius; yy++){
+        for (let xx = x-radius; xx<=x+radius; xx++){
+          if (xx<0||xx>=w||yy<0||yy>=h) continue;
+          const idx = (yy*w + xx)*channels;
+          rArr.push(src.data[idx]); gArr.push(src.data[idx+1]); bArr.push(src.data[idx+2]);
+        }
+      }
+      rArr.sort((a,b)=>a-b); gArr.sort((a,b)=>a-b); bArr.sort((a,b)=>a-b);
+      const mid = Math.floor(rArr.length/2);
+      const idx2 = (y*w + x)*channels;
+      dst.data[idx2] = rArr[mid]; dst.data[idx2+1] = gArr[mid]; dst.data[idx2+2] = bArr[mid]; dst.data[idx2+3] = 255;
+    }
+  }
+  const out = document.createElement('canvas'); out.width=w; out.height=h;
+  out.getContext('2d').putImageData(dst,0,0);
+  return out;
+}
+
+// 4) Brightness/contrast adjust on canvas
+function adjustBrightnessContrast(canvasIn, brightness=0, contrast=0){
+  const w = canvasIn.width, h = canvasIn.height;
+  const ctx2 = canvasIn.getContext('2d');
+  const img = ctx2.getImageData(0,0,w,h);
+  const data = img.data;
+  const b = brightness | 0;
+  const c = contrast | 0;
+  // contrast factor: formula
+  const f = (259 * (c + 255)) / (255 * (259 - c));
+  for (let i=0;i<data.length;i+=4){
+    data[i] = clamp(f * (data[i] - 128) + 128 + b, 0,255);
+    data[i+1] = clamp(f * (data[i+1] - 128) + 128 + b,0,255);
+    data[i+2] = clamp(f * (data[i+2] - 128) + 128 + b,0,255);
+  }
+  const out = document.createElement('canvas'); out.width=w; out.height=h;
+  out.getContext('2d').putImageData(img,0,0);
+  return out;
+}
+
+// full pipeline: from originalImage -> processedCanvas
+async function processImage(){
+  if (!originalImage) return;
+  setStatus('Memproses gambar — mohon tunggu (bisa beberapa detik tergantung ukuran)...');
+  await sleep(50);
+  // draw original into temp canvas
+  const base = document.createElement('canvas');
+  const iw = originalImage.naturalWidth || originalImage.width;
+  const ih = originalImage.naturalHeight || originalImage.height;
+  base.width = iw; base.height = ih;
+  const bctx = base.getContext('2d');
+  bctx.drawImage(originalImage,0,0,iw,ih);
+
+  // Scale down large images for performance, then apply upscale step for quality
+  // We'll use the canvas we displayed as starting point to limit memory
+  const displayScale = Math.min(1, 1200/iw, 900/ih);
+  const startCanvas = document.createElement('canvas');
+  startCanvas.width = Math.round(iw * displayScale);
+  startCanvas.height = Math.round(ih * displayScale);
+  startCanvas.getContext('2d').drawImage(base, 0,0, startCanvas.width, startCanvas.height);
+
+  // Upscale
+  const scaleFactor = parseFloat(scaleSelect.value || "2");
+  let upscaled = lanczosResize(startCanvas, scaleFactor);
+
+  // Denoise
+  const denoiseRadius = parseInt(denoiseRange.value,10) || 0;
+  if (denoiseRadius > 0) upscaled = medianDenoise(upscaled, denoiseRadius);
+
+  // Sharpen (unsharp mask)
+  const sharpenVal = parseInt(sharpenRange.value,10) || 0;
+  if (sharpenVal > 0) upscaled = unsharpMask(upscaled, sharpenVal, 1);
+
+  // Brightness/contrast
+  const brightness = parseInt(brightnessRange.value,10) || 0;
+  const contrast = parseInt(contrastRange.value,10) || 0;
+  if (brightness !== 0 || contrast !== 0) upscaled = adjustBrightnessContrast(upscaled, brightness, contrast);
+
+  // show result in main canvas (fit to canvas element)
+  const finalW = Math.min(upscaled.width, 2200);
+  const finalH = Math.min(upscaled.height, 1600);
+  canvas.width = finalW; canvas.height = finalH;
+  // center draw with smoothing enabled
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.fillStyle='#071018'; ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.drawImage(upscaled, 0, 0, finalW, finalH);
+
+  processedCanvas = upscaled;
+  setStatus('Selesai — hasil tersedia.');
+  downloadBtn.disabled = false;
+}
+
+// helper sleep
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+
+// download current canvas as png
+function downloadResult(){
+  const dataUrl = canvas.toDataURL('image/png');
+  const a = document.createElement('a');
+  a.href = dataUrl; a.download = 'enhanced.png';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// UI wiring
+fileInput.addEventListener('change', (e)=> {
+  if (e.target.files && e.target.files[0]) loadFile(e.target.files[0]);
+});
+
+autoEnhance.addEventListener('click', ()=> processImage());
+downloadBtn.addEventListener('click', downloadResult);
+resetBtn.addEventListener('click', ()=> {
+  processedCanvas = null;
+  originalImage = null;
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  setStatus('Reset. Pilih file lagi.');
+  downloadBtn.disabled = true;
+  fileInput.value = '';
+});
+
+showOriginal.addEventListener('click', ()=> {
+  if (!originalImage) return;
+  drawToCanvas(originalImage);
+  setStatus('Menampilkan original.');
+  downloadBtn.disabled = true;
+});
+
+showProcessed.addEventListener('click', ()=> {
+  if (!processedCanvas) { setStatus('Belum ada hasil — tekan Auto Enhance.'); return; }
+  // draw processedCanvas into main canvas scaled to fit
+  const w = Math.min(processedCanvas.width, 2200);
+  const h = Math.min(processedCanvas.height, 1600);
+  canvas.width = w; canvas.height = h;
+  ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(processedCanvas, 0,0, w,h);
+  setStatus('Menampilkan hasil.');
+  downloadBtn.disabled = false;
+});
+
+// auto-detect drop
+document.getElementById('uploadLabel').addEventListener('dragover', e=> e.preventDefault());
+document.getElementById('uploadLabel').addEventListener('drop', e=> {
+  e.preventDefault();
+  const f = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (f) { fileInput.files = e.dataTransfer.files; loadFile(f); }
+});
+
+// Initial canvas background
+ctx.fillStyle = '#071018'; ctx.fillRect(0,0,canvas.width,canvas.height);
+
+</script>
+</body>
+</html>
