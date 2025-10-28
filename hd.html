@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>PhotoAI - Penjernih Foto AI</title>
+  <style>
+    body {
+      font-family: 'Poppins', sans-serif;
+      background: linear-gradient(120deg, #0f2027, #203a43, #2c5364);
+      color: white;
+      text-align: center;
+      padding: 40px;
+    }
+    .container {
+      max-width: 700px;
+      margin: auto;
+      background: rgba(255, 255, 255, 0.08);
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 30px rgba(0,0,0,0.3);
+    }
+    input[type="file"] {
+      margin-top: 15px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #1b2735;
+      color: #fff;
+    }
+    button {
+      margin-top: 20px;
+      background: #00c6ff;
+      color: #fff;
+      border: none;
+      padding: 12px 20px;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+    button:hover {
+      background: #0072ff;
+    }
+    img {
+      max-width: 100%;
+      margin-top: 20px;
+      border-radius: 10px;
+      box-shadow: 0 0 20px rgba(0,0,0,0.4);
+    }
+    .loading {
+      display: none;
+      font-size: 16px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧠 PhotoAI</h1>
+    <p>Penjernih Foto Canggih dengan AI (Real-ESRGAN)</p>
+
+    <input type="file" id="fileInput" accept="image/*"><br>
+    <button id="enhanceBtn">✨ Jernihkan Foto</button>
+
+    <div class="loading" id="loadingText">Memproses dengan AI...</div>
+
+    <div id="resultContainer" style="display:none;">
+      <h3>📸 Hasil Foto Jernih:</h3>
+      <img id="resultImage" src="">
+      <br>
+      <a id="downloadBtn" href="#" download="enhanced_photo.jpg">
+        <button>⬇️ Download</button>
+      </a>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById("fileInput");
+    const enhanceBtn = document.getElementById("enhanceBtn");
+    const loadingText = document.getElementById("loadingText");
+    const resultContainer = document.getElementById("resultContainer");
+    const resultImage = document.getElementById("resultImage");
+    const downloadBtn = document.getElementById("downloadBtn");
+
+    enhanceBtn.addEventListener("click", async () => {
+      const file = fileInput.files[0];
+      if (!file) return alert("Pilih gambar dulu ya!");
+
+      loadingText.style.display = "block";
+      resultContainer.style.display = "none";
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      const res = await fetch("/api/enhance", {
+        method: "POST",
+        body: formData
+      });
+
+      const data = await res.json();
+      loadingText.style.display = "none";
+
+      if (data.output) {
+        resultImage.src = data.output;
+        downloadBtn.href = data.output;
+        resultContainer.style.display = "block";
+      } else {
+        alert("Gagal menjernihkan gambar 😢");
+        console.error(data);
+      }
+    });
+  </script>
+</body>
+</html>
